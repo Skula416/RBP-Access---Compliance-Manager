@@ -1,0 +1,188 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "RBP Recommendation Submitted",
+    "description": "Webhook endpoint for workflow tenant: rbp-approval-workflow\n\n**Workflow:** rbp-approval-workflow\n\nThis webhook accepts multiple HTTP methods. The request body/query parameters\nare passed as input to the n8n workflow execution.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Managed n8n Support"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://your-n8n-workflow-tenant.example.com",
+      "description": "Workflow tenant webhook base URL"
+    }
+  ],
+  "tags": [
+    {
+      "name": "rbp-approval-workflow",
+      "description": "Webhooks for workflow: rbp-approval-workflow"
+    }
+  ],
+  "paths": {
+    "/rbp-access-manager-e7f14/rbp-approval-workflow/rbp-recommendation-submitted": {
+      "post": {
+        "summary": "POST RBP Recommendation Submitted",
+        "description": "POST endpoint for webhook: rbp-access-manager-e7f14/rbp-approval-workflow/rbp-recommendation-submitted\n\nWorkflow: rbp-approval-workflow",
+        "operationId": "postRbpAccessManagerE7f14RbpApprovalWorkflowRbpRecommendationSubmittedUsingPOST",
+        "tags": [
+          "rbp-approval-workflow"
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook executed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "description": "Response from workflow execution"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing JWT token"
+          },
+          "403": {
+            "description": "Forbidden - Token audience mismatch or invalid issuer"
+          },
+          "500": {
+            "description": "Internal Server Error - Workflow execution failed"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "request_id",
+                  "user_id",
+                  "recommended_group",
+                  "change_type",
+                  "justification"
+                ],
+                "properties": {
+                  "request_id": {
+                    "type": "string",
+                    "description": "Unique identifier for this access request"
+                  },
+                  "user_id": {
+                    "type": "string",
+                    "description": "SAP SuccessFactors user ID of the affected employee"
+                  },
+                  "issue_description": {
+                    "type": "string",
+                    "description": "Plain-language description of the access issue"
+                  },
+                  "diagnosis": {
+                    "type": "string",
+                    "description": "Structured diagnosis from the RBP GenAI tool"
+                  },
+                  "recommended_group": {
+                    "type": "string",
+                    "description": "Name of the permission group to assign or revoke"
+                  },
+                  "change_type": {
+                    "type": "string",
+                    "enum": [
+                      "assign",
+                      "revoke"
+                    ],
+                    "description": "Whether to assign or revoke the permission group"
+                  },
+                  "justification": {
+                    "type": "string",
+                    "description": "Plain-language justification for the approver"
+                  },
+                  "approver_email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Email address of the HR Admin or Compliance Officer who should approve"
+                  },
+                  "requester_email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Email address of the requester to notify of the decision"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rbp-access-manager-e7f14/rbp-approval-workflow/generate-compliance-report": {
+      "post": {
+        "summary": "POST Generate Compliance Report",
+        "description": "POST endpoint for webhook: rbp-access-manager-e7f14/rbp-approval-workflow/generate-compliance-report\n\nWorkflow: rbp-approval-workflow",
+        "operationId": "postRbpAccessManagerE7f14RbpApprovalWorkflowGenerateComplianceReportUsingPOST",
+        "tags": [
+          "rbp-approval-workflow"
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook executed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "description": "Response from workflow execution"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing JWT token"
+          },
+          "403": {
+            "description": "Forbidden - Token audience mismatch or invalid issuer"
+          },
+          "500": {
+            "description": "Internal Server Error - Workflow execution failed"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "period": {
+                    "type": "string",
+                    "description": "Optional reporting period override (e.g. Q3 2026). Defaults to current quarter."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT token with correct issuer and audience for this workflow tenant. Token is validated by Istio RequestAuthentication."
+      }
+    }
+  }
+}

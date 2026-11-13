@@ -1,0 +1,349 @@
+{
+  "servers": {
+    "sf-rbp-genai": {
+      "mcp_server_name": "sap.mcp/role_based_permissions_generative_ai_troubleshooting",
+      "description": "SAP SuccessFactors RBP Generative AI Troubleshooting API — diagnoses RBP access issues",
+      "tools": {
+        "POST_rest_iam_authorization_genai_v1_permissions": {
+          "description": "Analyse an RBP access issue and return a diagnosis with recommended permission group fix",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "userId": { "type": "string", "description": "User ID of the affected employee" },
+              "issueDescription": { "type": "string", "description": "Plain-language description of the access issue" },
+              "module": { "type": "string", "description": "SAP SuccessFactors module affected (e.g. Compensation)" }
+            },
+            "required": ["userId", "issueDescription"]
+          },
+          "mock_response": {
+            "diagnosis": {
+              "rootCause": "User is missing the Compensation Planner permission group",
+              "affectedModule": "Compensation",
+              "recommendedPermissionGroup": "Compensation Planner",
+              "changeType": "assign",
+              "confidence": "HIGH",
+              "justification": "The user's role as HR Business Partner requires access to compensation planning. The Compensation Planner group grants the necessary read and write access to compensation worksheets."
+            }
+          }
+        },
+        "POST_rest_iam_authorization_genai_v1_groups": {
+          "description": "Get RBP group membership recommendations for a user",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "userId": { "type": "string", "description": "User ID" },
+              "targetGroups": { "type": "array", "items": { "type": "string" }, "description": "Permission groups to evaluate" }
+            },
+            "required": ["userId"]
+          },
+          "mock_response": {
+            "recommendations": [
+              {
+                "group": "Compensation Planner",
+                "recommended": true,
+                "reason": "Required for compensation module access"
+              }
+            ]
+          }
+        },
+        "GET_rest_iam_authorization_genai_v1_roles": {
+          "description": "Get available RBP roles for AI-assisted assignment",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "module": { "type": "string", "description": "Filter by module" }
+            }
+          },
+          "mock_response": {
+            "results": [
+              { "roleId": "COMP_PLANNER", "roleName": "Compensation Planner", "module": "Compensation" },
+              { "roleId": "PERF_USER", "roleName": "Performance User", "module": "Performance" },
+              { "roleId": "HR_ADMIN", "roleName": "HR Administrator", "module": "All" }
+            ]
+          }
+        }
+      }
+    },
+    "sf-rbp-permissions": {
+      "mcp_server_name": "sap.mcp/role_based_permissions",
+      "description": "SAP SuccessFactors Role-Based Permissions API — read and write RBP assignments",
+      "tools": {
+        "get_metadata_sfodata": {
+          "description": "Get OData service metadata for the RBP API",
+          "input_schema": { "type": "object", "properties": {} },
+          "mock_response": { "metadata": "OData metadata document" }
+        },
+        "list_rbprole_for_sfodata": {
+          "description": "List RBP roles defined in SuccessFactors",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "$top": { "type": "integer", "description": "Max results" },
+              "$filter": { "type": "string", "description": "OData filter" }
+            }
+          },
+          "mock_response": {
+            "results": [
+              { "roleId": "COMP_PLANNER", "roleName": "Compensation Planner", "description": "Access to compensation planning" },
+              { "roleId": "ESS", "roleName": "Employee Self-Service", "description": "Basic employee access" }
+            ]
+          }
+        },
+        "get_rbprole_for_sfodata": {
+          "description": "Get a specific RBP role by ID",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "roleId": { "type": "string", "description": "RBP role identifier" }
+            },
+            "required": ["roleId"]
+          },
+          "mock_response": {
+            "roleId": "COMP_PLANNER",
+            "roleName": "Compensation Planner",
+            "description": "Grants access to compensation planning worksheets and cycle management",
+            "isActive": true
+          }
+        },
+        "list_rbprule_for_sfodata": {
+          "description": "List RBP permission rules",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "$top": { "type": "integer" },
+              "$filter": { "type": "string" }
+            }
+          },
+          "mock_response": {
+            "results": [
+              { "ruleId": "RULE-001", "ruleName": "Compensation Access Rule", "roleId": "COMP_PLANNER" }
+            ]
+          }
+        },
+        "function_checkuserpermission_for_sfodata": {
+          "description": "Check if a specific user has a specific permission",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "userId": { "type": "string", "description": "User to check" },
+              "permissionName": { "type": "string", "description": "Permission name" }
+            },
+            "required": ["userId", "permissionName"]
+          },
+          "mock_response": {
+            "hasPermission": false,
+            "permissionName": "Compensation.View",
+            "userId": "emp-12345"
+          }
+        },
+        "function_getuserspermissions_for_sfodata": {
+          "description": "Get all permissions for a specific user",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "userId": { "type": "string", "description": "User ID" }
+            },
+            "required": ["userId"]
+          },
+          "mock_response": {
+            "userId": "emp-12345",
+            "permissions": [
+              { "permission": "Employee.View", "granted": true },
+              { "permission": "Compensation.View", "granted": false }
+            ]
+          }
+        },
+        "function_getuserrolesbyuserid_for_sfodata": {
+          "description": "Get all RBP roles assigned to a user",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "userId": { "type": "string", "description": "User ID" }
+            },
+            "required": ["userId"]
+          },
+          "mock_response": {
+            "userId": "emp-12345",
+            "roles": [
+              { "roleId": "ESS", "roleName": "Employee Self-Service", "assignedDate": "/Date(1700000000000)/" }
+            ]
+          }
+        },
+        "function_updatestaticgroup_for_sfodata": {
+          "description": "Add or remove a user from a static permission group",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "groupId": { "type": "string", "description": "Permission group ID" },
+              "userId": { "type": "string", "description": "User ID to add/remove" },
+              "action": { "type": "string", "enum": ["add", "remove"], "description": "Action to perform" }
+            },
+            "required": ["groupId", "userId", "action"]
+          },
+          "mock_response": {
+            "success": true,
+            "groupId": "COMP_PLANNER",
+            "userId": "emp-12345",
+            "action": "add",
+            "updatedAt": "/Date(1731500000000)/"
+          }
+        }
+      }
+    },
+    "sf-user-management": {
+      "mcp_server_name": "sap.mcp/user_management",
+      "description": "SAP SuccessFactors User Management API — read user profiles",
+      "tools": {
+        "get_metadata_sfodata": {
+          "description": "Get OData service metadata for the User Management API",
+          "input_schema": { "type": "object", "properties": {} },
+          "mock_response": { "metadata": "OData metadata document" }
+        },
+        "list_user_for_sfodata": {
+          "description": "List SuccessFactors users",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "$top": { "type": "integer" },
+              "$filter": { "type": "string" }
+            }
+          },
+          "mock_response": {
+            "results": [
+              {
+                "userId": "emp-12345",
+                "firstName": "Emma",
+                "lastName": "User",
+                "email": "emma.user@company.com",
+                "department": "HR",
+                "jobCode": "HRB-001",
+                "status": "active"
+              }
+            ]
+          }
+        },
+        "get_user_for_sfodata": {
+          "description": "Get a specific user profile by ID",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "userId": { "type": "string", "description": "User ID" }
+            },
+            "required": ["userId"]
+          },
+          "mock_response": {
+            "userId": "emp-12345",
+            "firstName": "Emma",
+            "lastName": "User",
+            "email": "emma.user@company.com",
+            "department": "HR",
+            "jobCode": "HRB-001",
+            "manager": "mgr-67890",
+            "status": "active",
+            "hireDate": "/Date(1609459200000)/"
+          }
+        }
+      }
+    },
+    "sf-foundation-platform": {
+      "mcp_server_name": "sap.mcp/foundation_platform",
+      "description": "SAP SuccessFactors Foundation Platform API — organisational and picklist data",
+      "tools": {
+        "get_metadata_sfodata": {
+          "description": "Get OData service metadata for the Foundation Platform API",
+          "input_schema": { "type": "object", "properties": {} },
+          "mock_response": { "metadata": "OData metadata document" }
+        },
+        "list_picklistoption_for_sfodata": {
+          "description": "List picklist options for a given picklist",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "picklistId": { "type": "string" },
+              "$top": { "type": "integer" }
+            }
+          },
+          "mock_response": {
+            "results": [
+              { "id": "OPT-001", "label": "Full Time", "picklistId": "EMPLOYMENT_TYPE" },
+              { "id": "OPT-002", "label": "Part Time", "picklistId": "EMPLOYMENT_TYPE" }
+            ]
+          }
+        },
+        "list_country_for_sfodata": {
+          "description": "List available countries",
+          "input_schema": {
+            "type": "object",
+            "properties": { "$top": { "type": "integer" } }
+          },
+          "mock_response": {
+            "results": [
+              { "countryCode": "US", "countryName": "United States" },
+              { "countryCode": "DE", "countryName": "Germany" }
+            ]
+          }
+        }
+      }
+    },
+    "rbp-approval-workflow": {
+      "mcp_server_name": "sap.mcp/rbp_recommendation_submitted",
+      "description": "RBP Approval Workflow webhook — submits RBP recommendations for human approval",
+      "tools": {
+        "RbpRecommendationSubmittedUsingPOST": {
+          "description": "Submit an RBP permission change recommendation to the approval workflow",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "request_id": { "type": "string", "description": "Unique request ID" },
+              "user_id": { "type": "string", "description": "Affected user ID" },
+              "issue_description": { "type": "string", "description": "Plain-language issue description" },
+              "diagnosis": { "type": "string", "description": "Structured diagnosis from RBP GenAI tool" },
+              "recommended_group": { "type": "string", "description": "Permission group to assign or revoke" },
+              "change_type": { "type": "string", "enum": ["assign", "revoke"], "description": "Change type" },
+              "justification": { "type": "string", "description": "Plain-language justification for approver" },
+              "approver_email": { "type": "string", "description": "Approver email address" },
+              "requester_email": { "type": "string", "description": "Requester email address" }
+            },
+            "required": ["request_id", "user_id", "recommended_group", "change_type", "justification"]
+          },
+          "mock_response": {
+            "status": "submitted",
+            "request_id": "req-mock-001",
+            "message": "Your request has been submitted for approval. You will be notified by email when a decision is made."
+          }
+        },
+        "GenerateComplianceReportUsingPOST": {
+          "description": "Trigger quarterly RBP compliance report generation",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "period": { "type": "string", "description": "Optional reporting period override" }
+            }
+          },
+          "mock_response": {
+            "status": "completed",
+            "period": "Q4 2026",
+            "sodConflicts": 2,
+            "changes": 15
+          }
+        }
+      }
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "created_for_agent": "rbp-access-agent",
+    "mock_mode": true,
+    "deterministic": true,
+    "total_servers": 5,
+    "total_tools": 17,
+    "generated_from": [
+      "assets/sap-sf-plt-rbp-gen-ai-mcp-server/mcp-translation/translation.json",
+      "assets/sap-sf-plt-role-based-permissions-mcp-server/mcp-translation/translation.json",
+      "assets/sap-sf-plt-user-management-mcp-server/mcp-translation/translation.json",
+      "assets/sap-sf-foundation-platform-plt-mcp-server/mcp-translation/translation.json",
+      "assets/rbp-approval-workflow-mcp-server/mcp-translation/translation.json"
+    ],
+    "generation_date": "2026-11-13"
+  }
+}

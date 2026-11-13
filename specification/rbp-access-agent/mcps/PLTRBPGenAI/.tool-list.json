@@ -1,0 +1,265 @@
+[
+  {
+    "name": "POST_rest_iam_authorization_genai_v1_permissions",
+    "title": "POST_rest_iam_authorization_genai_v1_permissions",
+    "description": "Use this POST API to query RBP permissions. Three parameters are required: 'userName', which indicates the input user name; 'keywords', which indicates the keywords used to search for RBP permissions; the optional 'Accept-Language' header, which specifies the preferred language for the response. The API will return up to 5 permissions, each containing a 'permissionId', 'permissionLabel', and the 'granted' status. The 'hasMore' field in the response indicates whether there are more permissions available beyond the returned results. If the request is successful, a 200 status code will be returned with the permission details. A 400 status code indicates a bad request, which could be caused by security check failures or illegal characters in the request. A 401 status code indicates an unauthorized request.",
+    "openApiType": {
+      "path": "/rest/iam/authorization/genai/v1/permissions",
+      "method": "post",
+      "parameters": [
+        {
+          "name": "body",
+          "description": "",
+          "newParameterName": "body"
+        },
+        {
+          "name": "userName",
+          "description": "The name of a user.",
+          "in": "query",
+          "newParameterName": "username"
+        },
+        {
+          "name": "keyWords",
+          "description": "keyWords used to search for the RBP permissions.",
+          "in": "query",
+          "newParameterName": "keywords"
+        },
+        {
+          "name": "Accept-Language",
+          "description": "The preferred language for the response, for example, 'en_US' stands for American English. The default value is 'en_US'.",
+          "in": "header",
+          "newParameterName": "accept_language"
+        }
+      ],
+      "requestBody": {
+        "contentType": "application/json"
+      },
+      "responseHeaders": [
+        {
+          "name": "age"
+        },
+        {
+          "name": "cache-control"
+        },
+        {
+          "name": "expires"
+        },
+        {
+          "name": "last-modified"
+        },
+        {
+          "name": "x-request-id"
+        },
+        {
+          "name": "x-correlation-id"
+        },
+        {
+          "name": "content-type"
+        },
+        {
+          "name": "content-encoding"
+        },
+        {
+          "name": "content-language"
+        },
+        {
+          "name": "content-length"
+        }
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "POST_rest_iam_authorization_genai_v1_groups",
+    "title": "POST_rest_iam_authorization_genai_v1_groups",
+    "description": "Use this POST API to query groups. Three parameters are required: 'permissionId', which is the RBP permission ID'; 'isPermissionBased', which indicates whether it is a permission-based group; 'groupName', which is the input group name. The API returns up to 5 permission groups, with static groups taking precedence over dynamic groups. If the request is successful, you receive a 200 status code with the group details. A 400 status code indicates a bad request due to invalid inputs. A 401 status code means the request is unauthorized. A 500 status code indicates an internal server error.",
+    "openApiType": {
+      "path": "/rest/iam/authorization/genai/v1/groups",
+      "method": "post",
+      "parameters": [
+        {
+          "name": "body",
+          "description": "",
+          "newParameterName": "body"
+        },
+        {
+          "name": "permissionId",
+          "description": "The RBP permission ID",
+          "in": "query",
+          "newParameterName": "permissionid"
+        },
+        {
+          "name": "isPermissionBased",
+          "description": "Indicates whether it is a permission group.",
+          "in": "query",
+          "newParameterName": "ispermissionbased"
+        }
+      ],
+      "requestBody": {
+        "contentType": "application/json"
+      },
+      "responseHeaders": [
+        {
+          "name": "age"
+        },
+        {
+          "name": "cache-control"
+        },
+        {
+          "name": "expires"
+        },
+        {
+          "name": "last-modified"
+        },
+        {
+          "name": "x-request-id"
+        },
+        {
+          "name": "x-correlation-id"
+        },
+        {
+          "name": "content-type"
+        },
+        {
+          "name": "content-encoding"
+        },
+        {
+          "name": "content-language"
+        },
+        {
+          "name": "content-length"
+        }
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "GET_rest_iam_authorization_genai_v1_roles",
+    "title": "GET_rest_iam_authorization_genai_v1_roles",
+    "description": "Use this GET API to query all role names for a specific access group. One parameter is required: 'groupId', which represents the ID of the group you want to query.",
+    "openApiType": {
+      "path": "/rest/iam/authorization/genai/v1/roles",
+      "method": "get",
+      "parameters": [
+        {
+          "name": "body",
+          "description": "",
+          "newParameterName": "body"
+        },
+        {
+          "name": "groupId",
+          "description": "The ID of a permission group.",
+          "in": "query",
+          "newParameterName": "groupid"
+        }
+      ],
+      "requestBody": {
+        "contentType": "application/json"
+      },
+      "responseHeaders": [
+        {
+          "name": "age"
+        },
+        {
+          "name": "cache-control"
+        },
+        {
+          "name": "expires"
+        },
+        {
+          "name": "last-modified"
+        },
+        {
+          "name": "x-request-id"
+        },
+        {
+          "name": "x-correlation-id"
+        },
+        {
+          "name": "content-type"
+        },
+        {
+          "name": "content-encoding"
+        },
+        {
+          "name": "content-language"
+        },
+        {
+          "name": "content-length"
+        }
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "PATCH_staticGroups_groupId",
+    "title": "PATCH_staticGroups_groupId",
+    "description": "Modify static group members",
+    "openApiType": {
+      "path": "/staticGroups/{groupId}",
+      "method": "patch",
+      "parameters": [
+        {
+          "name": "groupId",
+          "description": "The ID of the static group to modify.",
+          "in": "path",
+          "newParameterName": "groupid"
+        },
+        {
+          "name": "Accept-Language",
+          "description": "The preferred language for the response, for example, 'en_US' stands for American English. The default value is 'en_US'.",
+          "in": "header",
+          "newParameterName": "accept_language"
+        },
+        {
+          "name": "members",
+          "description": "The list of members to include in the group.",
+          "in": "path",
+          "newParameterName": "members"
+        }
+      ],
+      "requestBody": {},
+      "responseHeaders": [
+        {
+          "name": "age"
+        },
+        {
+          "name": "cache-control"
+        },
+        {
+          "name": "expires"
+        },
+        {
+          "name": "last-modified"
+        },
+        {
+          "name": "x-request-id"
+        },
+        {
+          "name": "x-correlation-id"
+        },
+        {
+          "name": "content-type"
+        },
+        {
+          "name": "content-encoding"
+        },
+        {
+          "name": "content-language"
+        },
+        {
+          "name": "content-length"
+        }
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false
+    }
+  }
+]

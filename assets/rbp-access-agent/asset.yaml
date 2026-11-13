@@ -1,0 +1,54 @@
+apiVersion: asset.sap/v1
+kind: Asset
+
+metadata:
+  name: rbp-access-agent
+  description: Investigates and resolves SAP SuccessFactors RBP access issues, produces permission change recommendations, and submits them for human approval
+
+type: agent
+
+container:
+  buildPath: .
+  port: 5000
+
+provides:
+  apis:
+    - name: rbp-access-agent
+      kind: a2a
+      ordId: customer.build:apiResource:rbp-access-manager-e7f14.rbp-access-agent:v1
+
+requires:
+  - name: sap-sf-plt-rbp-gen-ai-mcp-server
+    kind: mcp-server
+    ordId: customer.build:apiResource:rbp-access-manager-e7f14.sap-sf-plt-rbp-gen-ai-mcp-server:v1
+  - name: sap-sf-plt-role-based-permissions-mcp-server
+    kind: mcp-server
+    ordId: customer.build:apiResource:rbp-access-manager-e7f14.sap-sf-plt-role-based-permissions-mcp-server:v1
+  - name: sap-sf-plt-user-management-mcp-server
+    kind: mcp-server
+    ordId: customer.build:apiResource:rbp-access-manager-e7f14.sap-sf-plt-user-management-mcp-server:v1
+  - name: sap-sf-foundation-platform-plt-mcp-server
+    kind: mcp-server
+    ordId: customer.build:apiResource:rbp-access-manager-e7f14.sap-sf-foundation-platform-plt-mcp-server:v1
+  - name: rbp-approval-workflow-mcp-server
+    kind: mcp-server
+    ordId: sap.n8nwfrt:apiResource:rbp-access-manager-e7f14.rbp-approval-workflow-mcp-server.rbpRecommendationSubmitted:v1
+
+probes:
+  startup:
+    path: /.well-known/agent.json
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 18
+  liveness:
+    path: /.well-known/agent.json
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    path: /.well-known/agent.json
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3

@@ -1,0 +1,145 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "RBP Approval Workflow API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/rbp-access-manager-e7f14/rbp-approval-workflow/rbp-recommendation-submitted": {
+      "post": {
+        "summary": "Submit RBP permission change recommendation for approval",
+        "operationId": "rbpRecommendationSubmitted",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["request_id", "user_id", "recommended_group", "change_type", "justification"],
+                "properties": {
+                  "request_id": {
+                    "type": "string",
+                    "description": "Unique identifier for this access request"
+                  },
+                  "user_id": {
+                    "type": "string",
+                    "description": "SAP SuccessFactors user ID of the affected employee"
+                  },
+                  "issue_description": {
+                    "type": "string",
+                    "description": "Plain-language description of the access issue"
+                  },
+                  "diagnosis": {
+                    "type": "string",
+                    "description": "Structured diagnosis from the RBP GenAI tool"
+                  },
+                  "recommended_group": {
+                    "type": "string",
+                    "description": "Name of the permission group to assign or revoke"
+                  },
+                  "change_type": {
+                    "type": "string",
+                    "enum": ["assign", "revoke"],
+                    "description": "Whether to assign or revoke the permission group"
+                  },
+                  "justification": {
+                    "type": "string",
+                    "description": "Plain-language justification for the approver"
+                  },
+                  "approver_email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Email address of the HR Admin or Compliance Officer who should approve"
+                  },
+                  "requester_email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Email address of the requester to notify of the decision"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Request processed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["approved", "rejected", "error"]
+                    },
+                    "request_id": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error — required fields missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rbp-access-manager-e7f14/rbp-approval-workflow/generate-compliance-report": {
+      "post": {
+        "summary": "Trigger quarterly RBP compliance report generation",
+        "operationId": "generateComplianceReport",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "period": {
+                    "type": "string",
+                    "description": "Optional reporting period override (e.g. Q3 2026). Defaults to current quarter."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Compliance report generated and delivered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" },
+                    "period": { "type": "string" },
+                    "sodConflicts": { "type": "integer" },
+                    "changes": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

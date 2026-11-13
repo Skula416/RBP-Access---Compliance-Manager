@@ -1,0 +1,21 @@
+apiVersion: asset.sap/v1
+kind: Asset
+type: mcp-server
+
+metadata:
+  name: sap-sf-plt-role-based-permissions-mcp-server
+  description: Exposes SAP SuccessFactors Role-Based Permissions API as MCP tools for reading and writing RBP permission assignments
+  version: "1.0.0"
+  translation: mcp-translation/translation.json
+  apiSpec: mcp-translation/api-spec.edmx
+
+requires:
+  - name: PLTRoleBasedPermissions
+    kind: api
+    ordId: sap.sf:apiResource:PLTRoleBasedPermissions:v1
+
+provides:
+  apis:
+    - name: sap-sf-plt-role-based-permissions-mcp-server
+      kind: mcp-server
+      ordId: customer.build:apiResource:rbp-access-manager-e7f14.sap-sf-plt-role-based-permissions-mcp-server:v1

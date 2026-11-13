@@ -1,0 +1,21 @@
+apiVersion: asset.sap/v1
+kind: Asset
+type: mcp-server
+
+metadata:
+  name: sap-sf-plt-rbp-gen-ai-mcp-server
+  description: Exposes SAP SuccessFactors RBP Generative AI Troubleshooting API as MCP tools for diagnosing Role-Based Permission access issues
+  version: "1.0.0"
+  translation: mcp-translation/translation.json
+  apiSpec: mcp-translation/api-spec.json
+
+requires:
+  - name: PLTRBPGenAI
+    kind: api
+    ordId: sap.sf:apiResource:PLTRBPGenAI:v1
+
+provides:
+  apis:
+    - name: sap-sf-plt-rbp-gen-ai-mcp-server
+      kind: mcp-server
+      ordId: customer.build:apiResource:rbp-access-manager-e7f14.sap-sf-plt-rbp-gen-ai-mcp-server:v1

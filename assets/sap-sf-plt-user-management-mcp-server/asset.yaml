@@ -1,0 +1,21 @@
+apiVersion: asset.sap/v1
+kind: Asset
+type: mcp-server
+
+metadata:
+  name: sap-sf-plt-user-management-mcp-server
+  description: Exposes SAP SuccessFactors User Management API as MCP tools for reading user profiles and permission assignments
+  version: "1.0.0"
+  translation: mcp-translation/translation.json
+  apiSpec: mcp-translation/api-spec.edmx
+
+requires:
+  - name: PLTUserManagement
+    kind: api
+    ordId: sap.sf:apiResource:PLTUserManagement:v1
+
+provides:
+  apis:
+    - name: sap-sf-plt-user-management-mcp-server
+      kind: mcp-server
+      ordId: customer.build:apiResource:rbp-access-manager-e7f14.sap-sf-plt-user-management-mcp-server:v1

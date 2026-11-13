@@ -1,0 +1,817 @@
+{
+  "name": "RBP Approval Workflow",
+  "description": "Orchestrates RBP permission change approvals. Flow 1: Receives an RBP recommendation from the AI agent, creates a SAP Task Center approval task for the HR Administrator or Compliance Officer, and — on approval — automatically applies the permission change in SAP SuccessFactors via the RBP Permissions MCP server. Flow 2: Generates quarterly RBP compliance reports covering SoD conflicts, change history, and best practice deviations.",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rbp-access-manager-e7f14/rbp-approval-workflow/rbp-recommendation-submitted",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "RBP Recommendation Submitted",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -900,
+        0
+      ],
+      "webhookId": "a1b2c3d4-0001-0001-0001-000000000002"
+    },
+    {
+      "parameters": {
+        "jsCode": "const REQUIRED_FIELDS = ['request_id', 'user_id', 'recommended_group', 'change_type', 'justification'];\nconst VALID_CHANGE_TYPES = ['assign', 'revoke'];\nconst body = $input.item.json.body || {};\nconst missing = REQUIRED_FIELDS.filter(f => !body[f]);\nif (missing.length > 0) {\n  throw new Error('Missing required fields: ' + missing.join(', '));\n}\nif (!VALID_CHANGE_TYPES.includes(body.change_type)) {\n  throw new Error('Invalid change_type. Must be assign or revoke.');\n}\nreturn $input.item;"
+      },
+      "id": "a1b2c3d4-0002-0002-0002-000000000001",
+      "name": "Validate Request Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "onError": "continueErrorOutput",
+      "position": [
+        -660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "⚙️ Required fields: request_id, user_id, recommended_group, change_type (assign|revoke), justification\nReturns 400 on validation failure.",
+        "width": 340,
+        "height": 80
+      },
+      "id": "a1b2c3d4-0002-0002-0002-000000000002",
+      "name": "Validation Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -660,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'error', message: $json.error.message || 'Validation failed' }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "a1b2c3d4-0003-0003-0003-000000000001",
+      "name": "Respond 400 Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -420,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "mcpServerName": "{\"ordId\":\"customer.build:apiResource:rbp-access-manager-e7f14.rbp-permissions-mcp-server:v1\",\"name\":\"rbp-permissions-mcp-server\"}",
+        "toolMode": "list",
+        "toolFromList": "{\"name\":\"write_audit_log\"}",
+        "inputMode": "json",
+        "toolArguments": "={{ JSON.stringify({ request_id: $('RBP Recommendation Submitted').item.json.body.request_id, user_id: $('RBP Recommendation Submitted').item.json.body.user_id, event_type: 'recommendation_received', actor_id: 'rbp-access-agent', details: { recommended_group: $('RBP Recommendation Submitted').item.json.body.recommended_group, change_type: $('RBP Recommendation Submitted').item.json.body.change_type } }) }}",
+        "additionalOptions": {
+          "includeMetadata": false,
+          "timeout": 15000
+        },
+        "mcpServers": "[{\"ordId\":\"customer.build:apiResource:rbp-access-manager-e7f14.rbp-permissions-mcp-server:v1\",\"name\":\"rbp-permissions-mcp-server\",\"description\":\"Exposes SAP SuccessFactors Role-Based Permissions API for read and write operations\",\"tools\":[{\"name\":\"write_audit_log\",\"description\":\"Write an audit log entry for an RBP lifecycle event\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"request_id\":{\"type\":\"string\"},\"user_id\":{\"type\":\"string\"},\"event_type\":{\"type\":\"string\"},\"actor_id\":{\"type\":\"string\"},\"details\":{\"type\":\"object\"}},\"required\":[\"request_id\",\"user_id\",\"event_type\"]}},{\"name\":\"apply_permission_change\",\"description\":\"Apply an approved RBP permission change to a user in SAP SuccessFactors\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"user_id\":{\"type\":\"string\"},\"permission_group\":{\"type\":\"string\"},\"change_type\":{\"type\":\"string\",\"enum\":[\"assign\",\"revoke\"]},\"approver_id\":{\"type\":\"string\"},\"request_id\":{\"type\":\"string\"}},\"required\":[\"user_id\",\"permission_group\",\"change_type\",\"approver_id\",\"request_id\"]}}]}]"
+      },
+      "id": "a1b2c3d4-0004-0004-0004-000000000001",
+      "name": "Write Audit Log Received",
+      "type": "CUSTOM.sapMcpClient",
+      "typeVersion": 1,
+      "onError": "continueRegularOutput",
+      "position": [
+        -420,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "subject": "=RBP Permission Change Approval Required: {{ $('RBP Recommendation Submitted').item.json.body.user_id }}",
+        "priority": "HIGH",
+        "description": "=An RBP access issue has been investigated by the AI agent.\n\nAffected User: {{ $('RBP Recommendation Submitted').item.json.body.user_id }}\nIssue: {{ $('RBP Recommendation Submitted').item.json.body.issue_description }}\nDiagnosis: {{ $('RBP Recommendation Submitted').item.json.body.diagnosis }}\nRecommended Change: {{ $('RBP Recommendation Submitted').item.json.body.change_type }} permission group '{{ $('RBP Recommendation Submitted').item.json.body.recommended_group }}'\nJustification: {{ $('RBP Recommendation Submitted').item.json.body.justification }}\n\nPlease review and approve or reject.",
+        "recipients": {
+          "recipientValues": [
+            {
+              "userId": "={{ $('RBP Recommendation Submitted').item.json.body.approver_email }}"
+            }
+          ]
+        },
+        "taskDefinition": {
+          "definitionName": "Approve RBP Permission Change"
+        },
+        "customAttributeDefinitions": {
+          "attributes": [
+            {
+              "value": "={{ $('RBP Recommendation Submitted').item.json.body.request_id }}",
+              "code": "requestId",
+              "name": "Request ID",
+              "type": "STRING"
+            },
+            {
+              "value": "={{ $('RBP Recommendation Submitted').item.json.body.user_id }}",
+              "code": "affectedUser",
+              "name": "Affected User",
+              "type": "STRING"
+            },
+            {
+              "value": "={{ $('RBP Recommendation Submitted').item.json.body.recommended_group }}",
+              "code": "permissionGroup",
+              "name": "Permission Group",
+              "type": "STRING"
+            },
+            {
+              "value": "={{ $('RBP Recommendation Submitted').item.json.body.change_type }}",
+              "code": "changeType",
+              "name": "Change Type (assign/revoke)",
+              "type": "STRING"
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0005-0005-0005-000000000001",
+      "name": "Approve RBP Permission Change",
+      "type": "CUSTOM.sapTaskCenter",
+      "typeVersion": 1,
+      "onError": "stopWorkflow",
+      "position": [
+        -160,
+        -80
+      ],
+      "webhookId": "a1b2c3d4-0005-0005-0005-000000000002"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.result.response }}",
+                    "rightValue": "approved",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "route-approved"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "approved"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.result.response }}",
+                    "rightValue": "rejected",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "route-rejected"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "rejected"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0006-0006-0006-000000000001",
+      "name": "Route Approval Decision",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        100,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "mcpServerName": "{\"ordId\":\"customer.build:apiResource:rbp-access-manager-e7f14.rbp-permissions-mcp-server:v1\",\"name\":\"rbp-permissions-mcp-server\"}",
+        "toolMode": "list",
+        "toolFromList": "{\"name\":\"apply_permission_change\"}",
+        "inputMode": "json",
+        "toolArguments": "={{ JSON.stringify({ user_id: $('RBP Recommendation Submitted').item.json.body.user_id, permission_group: $('RBP Recommendation Submitted').item.json.body.recommended_group, change_type: $('RBP Recommendation Submitted').item.json.body.change_type, approver_id: $('Approve RBP Permission Change').item.json.result.respondedAt, request_id: $('RBP Recommendation Submitted').item.json.body.request_id }) }}",
+        "additionalOptions": {
+          "includeMetadata": false,
+          "timeout": 30000
+        },
+        "mcpServers": "[{\"ordId\":\"customer.build:apiResource:rbp-access-manager-e7f14.rbp-permissions-mcp-server:v1\",\"name\":\"rbp-permissions-mcp-server\",\"description\":\"Exposes SAP SuccessFactors Role-Based Permissions API for read and write operations\",\"tools\":[{\"name\":\"write_audit_log\",\"description\":\"Write an audit log entry for an RBP lifecycle event\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"request_id\":{\"type\":\"string\"},\"user_id\":{\"type\":\"string\"},\"event_type\":{\"type\":\"string\"},\"actor_id\":{\"type\":\"string\"},\"details\":{\"type\":\"object\"}},\"required\":[\"request_id\",\"user_id\",\"event_type\"]}},{\"name\":\"apply_permission_change\",\"description\":\"Apply an approved RBP permission change to a user in SAP SuccessFactors\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"user_id\":{\"type\":\"string\"},\"permission_group\":{\"type\":\"string\"},\"change_type\":{\"type\":\"string\",\"enum\":[\"assign\",\"revoke\"]},\"approver_id\":{\"type\":\"string\"},\"request_id\":{\"type\":\"string\"}},\"required\":[\"user_id\",\"permission_group\",\"change_type\",\"approver_id\",\"request_id\"]}}]}]"
+      },
+      "id": "a1b2c3d4-0007-0007-0007-000000000001",
+      "name": "Apply Permission Change",
+      "type": "CUSTOM.sapMcpClient",
+      "typeVersion": 1,
+      "onError": "continueErrorOutput",
+      "position": [
+        360,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "mcpServerName": "{\"ordId\":\"customer.build:apiResource:rbp-access-manager-e7f14.rbp-permissions-mcp-server:v1\",\"name\":\"rbp-permissions-mcp-server\"}",
+        "toolMode": "list",
+        "toolFromList": "{\"name\":\"write_audit_log\"}",
+        "inputMode": "json",
+        "toolArguments": "={{ JSON.stringify({ request_id: $('RBP Recommendation Submitted').item.json.body.request_id, user_id: $('RBP Recommendation Submitted').item.json.body.user_id, event_type: 'permission_change_applied', actor_id: 'rbp-approval-workflow', details: { group: $('RBP Recommendation Submitted').item.json.body.recommended_group, change_type: $('RBP Recommendation Submitted').item.json.body.change_type } }) }}",
+        "additionalOptions": {
+          "includeMetadata": false,
+          "timeout": 15000
+        },
+        "mcpServers": "[{\"ordId\":\"customer.build:apiResource:rbp-access-manager-e7f14.rbp-permissions-mcp-server:v1\",\"name\":\"rbp-permissions-mcp-server\",\"description\":\"Exposes SAP SuccessFactors Role-Based Permissions API for read and write operations\",\"tools\":[{\"name\":\"write_audit_log\",\"description\":\"Write an audit log entry for an RBP lifecycle event\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"request_id\":{\"type\":\"string\"},\"user_id\":{\"type\":\"string\"},\"event_type\":{\"type\":\"string\"},\"actor_id\":{\"type\":\"string\"},\"details\":{\"type\":\"object\"}},\"required\":[\"request_id\",\"user_id\",\"event_type\"]}},{\"name\":\"apply_permission_change\",\"description\":\"Apply an approved RBP permission change to a user in SAP SuccessFactors\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"user_id\":{\"type\":\"string\"},\"permission_group\":{\"type\":\"string\"},\"change_type\":{\"type\":\"string\",\"enum\":[\"assign\",\"revoke\"]},\"approver_id\":{\"type\":\"string\"},\"request_id\":{\"type\":\"string\"}},\"required\":[\"user_id\",\"permission_group\",\"change_type\",\"approver_id\",\"request_id\"]}}]}]"
+      },
+      "id": "a1b2c3d4-0008-0008-0008-000000000001",
+      "name": "Write Audit Log Applied",
+      "type": "CUSTOM.sapMcpClient",
+      "typeVersion": 1,
+      "onError": "continueRegularOutput",
+      "position": [
+        620,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('RBP Recommendation Submitted').item.json.body.requester_email }}",
+        "subject": "=Your RBP access request has been approved — {{ $('RBP Recommendation Submitted').item.json.body.request_id }}",
+        "emailType": "text",
+        "message": "=Your RBP permission change request ({{ $('RBP Recommendation Submitted').item.json.body.request_id }}) has been approved.\n\nThe following change has been applied:\n- User: {{ $('RBP Recommendation Submitted').item.json.body.user_id }}\n- Action: {{ $('RBP Recommendation Submitted').item.json.body.change_type }} permission group '{{ $('RBP Recommendation Submitted').item.json.body.recommended_group }}'\n\nIf you have any questions, please contact your HR Administrator.",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0009-0009-0009-000000000001",
+      "name": "Notify Requester Approved",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        880,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'approved', request_id: $('RBP Recommendation Submitted').item.json.body.request_id, message: 'Permission change applied and requester notified.' }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "a1b2c3d4-0010-0010-0010-000000000001",
+      "name": "Respond Approved",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1140,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'error', request_id: $('RBP Recommendation Submitted').item.json.body.request_id, message: 'Permission change failed to apply. HR Admin has been notified.' }) }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "a1b2c3d4-0010-0010-0010-000000000002",
+      "name": "Respond Apply Failed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        620,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "mcpServerName": "{\"ordId\":\"customer.build:apiResource:rbp-access-manager-e7f14.rbp-permissions-mcp-server:v1\",\"name\":\"rbp-permissions-mcp-server\"}",
+        "toolMode": "list",
+        "toolFromList": "{\"name\":\"write_audit_log\"}",
+        "inputMode": "json",
+        "toolArguments": "={{ JSON.stringify({ request_id: $('RBP Recommendation Submitted').item.json.body.request_id, user_id: $('RBP Recommendation Submitted').item.json.body.user_id, event_type: 'recommendation_rejected', actor_id: 'approver', details: { reason: 'Rejected by approver via SAP Task Center' } }) }}",
+        "additionalOptions": {
+          "includeMetadata": false,
+          "timeout": 15000
+        },
+        "mcpServers": "[{\"ordId\":\"customer.build:apiResource:rbp-access-manager-e7f14.rbp-permissions-mcp-server:v1\",\"name\":\"rbp-permissions-mcp-server\",\"description\":\"Exposes SAP SuccessFactors Role-Based Permissions API for read and write operations\",\"tools\":[{\"name\":\"write_audit_log\",\"description\":\"Write an audit log entry for an RBP lifecycle event\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"request_id\":{\"type\":\"string\"},\"user_id\":{\"type\":\"string\"},\"event_type\":{\"type\":\"string\"},\"actor_id\":{\"type\":\"string\"},\"details\":{\"type\":\"object\"}},\"required\":[\"request_id\",\"user_id\",\"event_type\"]}},{\"name\":\"apply_permission_change\",\"description\":\"Apply an approved RBP permission change to a user in SAP SuccessFactors\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"user_id\":{\"type\":\"string\"},\"permission_group\":{\"type\":\"string\"},\"change_type\":{\"type\":\"string\",\"enum\":[\"assign\",\"revoke\"]},\"approver_id\":{\"type\":\"string\"},\"request_id\":{\"type\":\"string\"}},\"required\":[\"user_id\",\"permission_group\",\"change_type\",\"approver_id\",\"request_id\"]}}]}]"
+      },
+      "id": "a1b2c3d4-0011-0011-0011-000000000001",
+      "name": "Write Audit Log Rejected",
+      "type": "CUSTOM.sapMcpClient",
+      "typeVersion": 1,
+      "onError": "continueRegularOutput",
+      "position": [
+        360,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('RBP Recommendation Submitted').item.json.body.requester_email }}",
+        "subject": "=Your RBP access request has been rejected — {{ $('RBP Recommendation Submitted').item.json.body.request_id }}",
+        "emailType": "text",
+        "message": "=Your RBP permission change request ({{ $('RBP Recommendation Submitted').item.json.body.request_id }}) has been reviewed and rejected by the approver.\n\nIf you believe this is an error, please contact your HR Administrator with your request ID.",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0012-0012-0012-000000000001",
+      "name": "Notify Requester Rejected",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        620,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'rejected', request_id: $('RBP Recommendation Submitted').item.json.body.request_id, message: 'Permission change rejected by approver. Requester has been notified.' }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "a1b2c3d4-0013-0013-0013-000000000001",
+      "name": "Respond Rejected",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        880,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rbp-access-manager-e7f14/rbp-approval-workflow/generate-compliance-report",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0020-0020-0020-000000000001",
+      "name": "Generate Compliance Report",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -900,
+        400
+      ],
+      "webhookId": "a1b2c3d4-0020-0020-0020-000000000002"
+    },
+    {
+      "parameters": {
+        "content": "⏰ Flow 2: Quarterly Compliance Report\nTriggered by this webhook (invoke quarterly via external scheduler or SAP job).\nFetches all RBP assignments, detects SoD conflicts, retrieves audit history, and delivers the report by email and Teams.",
+        "width": 440,
+        "height": 80
+      },
+      "id": "a1b2c3d4-0020-0020-0020-000000000003",
+      "name": "Compliance Report Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -900,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "mcpServerName": "{\"ordId\":\"customer.build:apiResource:rbp-access-manager-e7f14.rbp-permissions-mcp-server:v1\",\"name\":\"rbp-permissions-mcp-server\"}",
+        "toolMode": "list",
+        "toolFromList": "{\"name\":\"get_all_permission_assignments\"}",
+        "inputMode": "json",
+        "toolArguments": "{\"top\": 100, \"skip\": 0}",
+        "additionalOptions": {
+          "includeMetadata": false,
+          "timeout": 60000
+        },
+        "mcpServers": "[{\"ordId\":\"customer.build:apiResource:rbp-access-manager-e7f14.rbp-permissions-mcp-server:v1\",\"name\":\"rbp-permissions-mcp-server\",\"description\":\"Exposes SAP SuccessFactors Role-Based Permissions API for read and write operations\",\"tools\":[{\"name\":\"get_all_permission_assignments\",\"description\":\"Retrieve all users and their current permission group assignments\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"top\":{\"type\":\"integer\"},\"skip\":{\"type\":\"integer\"}}}},{\"name\":\"get_audit_log_entries\",\"description\":\"Retrieve audit log entries for a given period\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"from_date\":{\"type\":\"string\"},\"to_date\":{\"type\":\"string\"},\"event_types\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}},\"required\":[\"from_date\",\"to_date\"]}}]}]"
+      },
+      "id": "a1b2c3d4-0021-0021-0021-000000000001",
+      "name": "Fetch All Permission Assignments",
+      "type": "CUSTOM.sapMcpClient",
+      "typeVersion": 1,
+      "onError": "stopWorkflow",
+      "position": [
+        -640,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "mcpServerName": "{\"ordId\":\"customer.build:apiResource:rbp-access-manager-e7f14.rbp-permissions-mcp-server:v1\",\"name\":\"rbp-permissions-mcp-server\"}",
+        "toolMode": "list",
+        "toolFromList": "{\"name\":\"get_audit_log_entries\"}",
+        "inputMode": "json",
+        "toolArguments": "={{ JSON.stringify({ from_date: new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split('T')[0], to_date: new Date().toISOString().split('T')[0], event_types: ['permission_change_applied', 'recommendation_rejected'] }) }}",
+        "additionalOptions": {
+          "includeMetadata": false,
+          "timeout": 30000
+        },
+        "mcpServers": "[{\"ordId\":\"customer.build:apiResource:rbp-access-manager-e7f14.rbp-permissions-mcp-server:v1\",\"name\":\"rbp-permissions-mcp-server\",\"description\":\"Exposes SAP SuccessFactors Role-Based Permissions API for read and write operations\",\"tools\":[{\"name\":\"get_all_permission_assignments\",\"description\":\"Retrieve all users and their current permission group assignments\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"top\":{\"type\":\"integer\"},\"skip\":{\"type\":\"integer\"}}}},{\"name\":\"get_audit_log_entries\",\"description\":\"Retrieve audit log entries for a given period\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"from_date\":{\"type\":\"string\"},\"to_date\":{\"type\":\"string\"},\"event_types\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}},\"required\":[\"from_date\",\"to_date\"]}}]}]"
+      },
+      "id": "a1b2c3d4-0022-0022-0022-000000000001",
+      "name": "Fetch Audit Log History",
+      "type": "CUSTOM.sapMcpClient",
+      "typeVersion": 1,
+      "onError": "continueRegularOutput",
+      "position": [
+        -400,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const assignments = $('Fetch All Permission Assignments').item.json.result?.structuredContent || [];\nconst auditLog = $('Fetch Audit Log History').item.json.result?.structuredContent || [];\n\nconst SOD_CONFLICT_PAIRS = [\n  ['Compensation Planner', 'Compensation Approver'],\n  ['Payroll Input', 'Payroll Approver'],\n  ['PO Creator', 'PO Approver'],\n  ['Recruiting Recruiter', 'Recruiting Admin']\n];\n\nconst sodConflicts = [];\nconst bestPracticeDeviations = [];\n\nfor (const user of assignments) {\n  const groups = user.permissionGroups || [];\n  for (const [g1, g2] of SOD_CONFLICT_PAIRS) {\n    if (groups.includes(g1) && groups.includes(g2)) {\n      sodConflicts.push({ userId: user.userId, conflictingGroups: [g1, g2], riskLevel: 'High' });\n    }\n  }\n  if (groups.some(g => g.toLowerCase().includes('admin') || g.toLowerCase().includes('super'))) {\n    if (!['HR Admin', 'HR General', 'System Admin'].some(allowed => groups.includes(allowed))) {\n      bestPracticeDeviations.push({ userId: user.userId, deviation: 'End user has broad admin permission group', fix: 'Review and revoke admin group' });\n    }\n  }\n  if (!groups.includes('Employee Self-Service')) {\n    bestPracticeDeviations.push({ userId: user.userId, deviation: 'Missing Employee Self-Service (ESS) group', fix: 'Assign ESS group' });\n  }\n}\n\nconst report = {\n  period: `Q${Math.ceil((new Date().getMonth() + 1) / 3)} ${new Date().getFullYear()}`,\n  generatedAt: new Date().toISOString(),\n  totalUsersReviewed: assignments.length,\n  sodConflictsDetected: sodConflicts.length,\n  permissionChangesInPeriod: auditLog.length,\n  bestPracticeDeviations: bestPracticeDeviations.length,\n  sodConflicts,\n  changeHistory: auditLog,\n  deviations: bestPracticeDeviations\n};\n\nreturn [{ json: report }];"
+      },
+      "id": "a1b2c3d4-0023-0023-0023-000000000001",
+      "name": "Generate Compliance Report Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "⚙️ SoD conflict pairs and best practice rules are hardcoded here.\nThis configuration is hardcoded — the values in this node reflect what you provided. If this data is maintained in a connected system, replace this node with a live lookup when that integration is available. For now, update the values in this node directly when they change.",
+        "width": 440,
+        "height": 100
+      },
+      "id": "a1b2c3d4-0023-0023-0023-000000000002",
+      "name": "SoD Rules Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "compliance-officer@your-company.com",
+        "subject": "=RBP Compliance Report — {{ $json.period }}",
+        "emailType": "text",
+        "message": "=RBP Compliance Report — {{ $json.period }}\nGenerated: {{ $json.generatedAt }}\n\nSummary:\n- Total Users Reviewed: {{ $json.totalUsersReviewed }}\n- SoD Conflicts Detected: {{ $json.sodConflictsDetected }}\n- Permission Changes in Period: {{ $json.permissionChangesInPeriod }}\n- Best Practice Deviations: {{ $json.bestPracticeDeviations }}\n\nPlease review the full report in the compliance dashboard.",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0024-0024-0024-000000000001",
+      "name": "Email Compliance Report",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "team": {
+          "__rl": true,
+          "mode": "name",
+          "value": "HR & Compliance"
+        },
+        "channel": {
+          "__rl": true,
+          "mode": "name",
+          "value": "rbp-compliance"
+        },
+        "message": "=📊 RBP Compliance Report — {{ $('Generate Compliance Report Data').item.json.period }}\n\n✅ Users Reviewed: {{ $('Generate Compliance Report Data').item.json.totalUsersReviewed }}\n⚠️ SoD Conflicts: {{ $('Generate Compliance Report Data').item.json.sodConflictsDetected }}\n📋 Changes in Period: {{ $('Generate Compliance Report Data').item.json.permissionChangesInPeriod }}\n❗ Best Practice Deviations: {{ $('Generate Compliance Report Data').item.json.bestPracticeDeviations }}\n\nFull report sent to Compliance Officer by email.",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0025-0025-0025-000000000001",
+      "name": "Teams Compliance Notification",
+      "type": "n8n-nodes-base.microsoftTeams",
+      "typeVersion": 2,
+      "position": [
+        360,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'completed', period: $('Generate Compliance Report Data').item.json.period, sodConflicts: $('Generate Compliance Report Data').item.json.sodConflictsDetected, changes: $('Generate Compliance Report Data').item.json.permissionChangesInPeriod }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "a1b2c3d4-0026-0026-0026-000000000001",
+      "name": "Respond Compliance Complete",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        620,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "RBP Recommendation Submitted": {
+      "main": [
+        [
+          {
+            "node": "Validate Request Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Request Body": {
+      "main": [
+        [
+          {
+            "node": "Write Audit Log Received",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 400 Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Audit Log Received": {
+      "main": [
+        [
+          {
+            "node": "Approve RBP Permission Change",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve RBP Permission Change": {
+      "main": [
+        [
+          {
+            "node": "Route Approval Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Approval Decision": {
+      "main": [
+        [
+          {
+            "node": "Apply Permission Change",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Write Audit Log Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Permission Change": {
+      "main": [
+        [
+          {
+            "node": "Write Audit Log Applied",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Apply Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Audit Log Applied": {
+      "main": [
+        [
+          {
+            "node": "Notify Requester Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Requester Approved": {
+      "main": [
+        [
+          {
+            "node": "Respond Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Audit Log Rejected": {
+      "main": [
+        [
+          {
+            "node": "Notify Requester Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Requester Rejected": {
+      "main": [
+        [
+          {
+            "node": "Respond Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Compliance Report": {
+      "main": [
+        [
+          {
+            "node": "Fetch All Permission Assignments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch All Permission Assignments": {
+      "main": [
+        [
+          {
+            "node": "Fetch Audit Log History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Audit Log History": {
+      "main": [
+        [
+          {
+            "node": "Generate Compliance Report Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Compliance Report Data": {
+      "main": [
+        [
+          {
+            "node": "Email Compliance Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Compliance Report": {
+      "main": [
+        [
+          {
+            "node": "Teams Compliance Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Teams Compliance Notification": {
+      "main": [
+        [
+          {
+            "node": "Respond Compliance Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "Approve RBP Permission Change": [
+      {
+        "result": {
+          "response": "approved",
+          "respondedAt": "2026-11-13T10:00:00.000Z"
+        }
+      }
+    ],
+    "Apply Permission Change": [
+      {
+        "success": true,
+        "requestId": "req-test-001",
+        "tool": "apply_permission_change",
+        "mcpServer": {
+          "name": "rbp-permissions-mcp-server",
+          "ordId": "customer.build:apiResource:rbp-access-manager-e7f14.rbp-permissions-mcp-server:v1",
+          "globalTenantId": null
+        },
+        "result": {
+          "isError": false,
+          "content": [
+            {
+              "type": "text",
+              "text": "Permission change applied successfully"
+            }
+          ],
+          "structuredContent": {
+            "status": "applied"
+          }
+        },
+        "timestamp": "2026-11-13T10:01:00.000Z"
+      }
+    ],
+    "Write Audit Log Received": [
+      {
+        "success": true,
+        "requestId": "req-test-002",
+        "tool": "write_audit_log",
+        "mcpServer": {
+          "name": "rbp-permissions-mcp-server",
+          "ordId": "customer.build:apiResource:rbp-access-manager-e7f14.rbp-permissions-mcp-server:v1",
+          "globalTenantId": null
+        },
+        "result": {
+          "isError": false,
+          "content": [
+            {
+              "type": "text",
+              "text": "Audit log entry written"
+            }
+          ],
+          "structuredContent": {
+            "logged": true
+          }
+        },
+        "timestamp": "2026-11-13T10:00:00.000Z"
+      }
+    ],
+    "Fetch All Permission Assignments": [
+      {
+        "success": true,
+        "requestId": "req-test-003",
+        "tool": "get_all_permission_assignments",
+        "mcpServer": {
+          "name": "rbp-permissions-mcp-server",
+          "ordId": "customer.build:apiResource:rbp-access-manager-e7f14.rbp-permissions-mcp-server:v1",
+          "globalTenantId": null
+        },
+        "result": {
+          "isError": false,
+          "content": [
+            {
+              "type": "text",
+              "text": "Retrieved 2 users"
+            }
+          ],
+          "structuredContent": []
+        },
+        "timestamp": "2026-11-13T10:00:00.000Z"
+      }
+    ]
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "rbp-access-manager-instance"
+  }
+}

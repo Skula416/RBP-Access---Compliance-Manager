@@ -1,0 +1,22 @@
+apiVersion: asset.sap/v1
+kind: Asset
+type: mcp-server
+
+metadata:
+  name: rbp-approval-workflow-mcp-server
+  version: "1.0.0"
+  translation: mcp-translation/translation.json
+  apiSpec: mcp-translation/api-spec.json
+  description: MCP server exposing the RBP approval workflow webhook as tools for the AI agent
+
+requires:
+  - name: rbp_recommendation_submitted
+    kind: api
+    ordId: sap.n8nwfrt:apiResource:rbp-access-manager-e7f14_rbp-approval-workflow.rbpRecommendationSubmitted:v1
+
+provides:
+  apis:
+    - name: rbp-approval-workflow-mcp-server
+      kind: mcp-server
+      description: MCP server for RBP approval workflow webhook operations
+      ordId: sap.n8nwfrt:apiResource:rbp-access-manager-e7f14.rbp-approval-workflow-mcp-server.rbpRecommendationSubmitted:v1

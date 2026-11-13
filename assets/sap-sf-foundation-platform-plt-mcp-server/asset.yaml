@@ -1,0 +1,21 @@
+apiVersion: asset.sap/v1
+kind: Asset
+type: mcp-server
+
+metadata:
+  name: sap-sf-foundation-platform-plt-mcp-server
+  description: Exposes SAP SuccessFactors Common Platform (Foundation) API as MCP tools for reading organisational and picklist data
+  version: "1.0.0"
+  translation: mcp-translation/translation.json
+  apiSpec: mcp-translation/api-spec.edmx
+
+requires:
+  - name: FoundationPlatformPLT
+    kind: api
+    ordId: sap.sf:apiResource:FoundationPlatformPLT:v1
+
+provides:
+  apis:
+    - name: sap-sf-foundation-platform-plt-mcp-server
+      kind: mcp-server
+      ordId: customer.build:apiResource:rbp-access-manager-e7f14.sap-sf-foundation-platform-plt-mcp-server:v1
